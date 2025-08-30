@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    environment {
+        VENV = "venv"
+        PYTHON = "C:\\Program Files\\Python310\\python.exe"
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES') // Stop job after 30 min
+    }
+
+    stages {
+        stage('Clone GitHub Repo') {
+            steps {
+                git branch: 'main', credentialsId: 'github-https', url: 'https://github.com/arrnold-k/jenkins-pipeline'
+            }
+        }
+
+        stage('Set Up Python Virtual Environment') {
+            steps {
+                bat '''
+                echo Cleaning old venv...
+                rmdir /S /Q venv || echo No previous venv
+
+                echo Creating new venv...
+                "%PYTHON%" -m venv venv
+                if not exist venv\\Scripts\\python.exe (
+                    echo ERROR: venv creation failed!
+                    exit 1
+                )
+
+                echo Upgrading pip...
+                venv\\Scripts\\python.exe -m pip install --upgrade pip
+
+                echo Installing requirements...
+                venv\\Scripts\\pip install --no-cache-dir -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Run Flask App') {
+            steps {
+                bat '''
+                echo Starting Flask app...
+                venv\\Scripts\\python.exe app.py
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished (success or fail)."
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+        success {
+            echo "Pipeline succeeded!"
+        }
+    }
+}
